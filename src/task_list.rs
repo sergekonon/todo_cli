@@ -1,3 +1,4 @@
+use crate::storage;
 use crate::task::Task;
 
 #[derive(Default)]
@@ -7,13 +8,22 @@ pub struct TaskList {
 
 impl TaskList {
     pub fn new() -> Self {
-        Self::default()
+        match storage::load_tasks() {
+            Ok(tasks) => TaskList { tasks },
+            Err(_) => TaskList::default(),
+        }
     }
 
-    pub fn add_task(&mut self, task: Task) {
-        // Вставка с сохранением сортировки по order
+    pub fn load_tasks(&mut self) {
+        if let Ok(tasks) = storage::load_tasks() {
+            self.tasks = tasks;
+        }
+    }
+
+    pub fn add_task(&mut self, task: Task) -> usize {
         let idx = self.tasks.partition_point(|t| t.order <= task.order);
         self.tasks.insert(idx, task);
+        idx
     }
 
     pub fn remove_task(&mut self, id: u32) -> Option<Task> {

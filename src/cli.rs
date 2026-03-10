@@ -13,26 +13,46 @@ impl Cli {
     }
 
     /// Запускает интерактивный цикл
-    pub fn run(&self, list: &mut TaskList) -> Result<()> {
+    pub fn run(&self, list: &mut TaskList) {
         loop {
             self.print_tasks(list);
             self.show_menu();
 
-            let choice = self.read_line()?;
+            let choice = match self.read_line() {
+                Ok(val) => val,
+                Err(err) => {
+                    println!("Ошибка ввода: {}", err);
+                    continue;
+                }
+            };
 
             match choice.as_str() {
-                "1" => self.create_task(list)?,
-                "2" => self.edit_task(list)?,
-                "3" => self.delete_task(list)?,
+                "1" => {
+                    if let Err(e) = self.create_task(list) {
+                        print!("Ошибка создания задачи: {}", e);
+                    }
+                }
+                "2" => {
+                    if let Err(e) = self.edit_task(list) {
+                        print!("Ошибка редактирования задачи: {}", e);
+                    }
+                }
+                "3" => {
+                    if let Err(e) = self.delete_task(list) {
+                        print!("Ошибка удаления задачи: {}", e);
+                    }
+                }
                 "4" => {
-                    storage::save_tasks(list.tasks())?;
-                    println!("Данные сохранены. До свидания!");
-                    break;
+                    if let Err(e) = storage::save_tasks(list.tasks()) {
+                        print!("Ошибка сохранения задач: {}", e);
+                    } else {
+                        println!("Данные сохранены. До свидания!");
+                        break;
+                    }
                 }
                 _ => println!("Неверный ввод, попробуйте снова."),
             }
         }
-        Ok(())
     }
 
     fn print_tasks(&self, list: &TaskList) {
@@ -104,6 +124,27 @@ impl Cli {
             }
         };
 
+        let new_done = loop {
+            println!(
+                "Текущий статус: {}",
+                if task.done {
+                    "Выполнена"
+                } else {
+                    "Не выполнена"
+                }
+            );
+
+            print!("Новый статус (0 - не выполнена, 1 - выполнена, Enter для пропуска): ");
+            io::stdout().flush()?;
+
+            match self.read_line()?.as_str() {
+                "0" => break false,    // Возвращаем false из цикла
+                "1" => break true,     // Возвращаем true из цикла
+                "" => break task.done, // Возвращаем старое значение (пропуск)
+                _ => println!("Неверный ввод, попробуйте снова."),
+            }
+        };
+
         println!("Текущее название: {}", task.title);
         print!("Новое название (Enter для пропуска): ");
         io::stdout().flush()?;
@@ -128,7 +169,7 @@ impl Cli {
             } else {
                 new_title
             },
-            done: task.done,
+            done: new_done,
         });
 
         println!("Задача обновлена!");
